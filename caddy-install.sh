@@ -70,7 +70,8 @@ install_caddy()
 
   # TODO would be nice to make an if to set which init script/system it's using
   # and later install it to the right place
-  caddy_init="init/linux-systemd/caddy.service"
+  caddy_init_path="init/linux-systemd/"
+  caddy_init="caddy.service"
 
 	# NOTE: `uname -m` is more accurate and universal than `arch`
 	# See https://en.wikipedia.org/wiki/Uname
@@ -165,13 +166,11 @@ install_caddy()
 
 	echo "Extracting init script..."
 	case "$caddy_file" in
-		*.zip)    unzip -o "$PREFIX/tmp/$caddy_file" "$caddy_init" -d "$PREFIX/tmp/" ;;
-		*.tar.gz) tar -xzf "$PREFIX/tmp/$caddy_file" -C "$PREFIX/tmp/" "$caddy_init" ;;
+		*.zip)    unzip -o "$PREFIX/tmp/$caddy_file" "$caddy_init_path$caddy_init" -d "$PREFIX/tmp/" ;;
+		*.tar.gz) tar -xzf "$PREFIX/tmp/$caddy_file" -C "$PREFIX/tmp/" "$caddy_init_path$caddy_init" ;;
 	esac
+  echo $caddy_init_path$caddy_init
 
-
-  echo $(ls $PREFIX/tmp/)
-  read ffff
 
 	# Back up existing caddy, if any
 	caddy_cur_ver="$("$caddy_bin" --version 2>/dev/null | cut -d ' ' -f2)"
@@ -194,7 +193,8 @@ install_caddy()
   # TODO make this init system sensitive
   init_script_path="/etc/systemd/system/"
   echo "Putting init script in $init_script_path"
-  $sudo_cmd cp $caddy_init $init_script_path
+  $sudo_cmd cp $PREFIX/tmp/$caddy_init_path$caddy_init $init_script_path$caddy_init
+  $sudo_cmd rm -rf $PREFIX/tmp/$caddy_init_path
   $sudo_cmd chown root:root $init_script_path$caddy_init
   $sudo_cmd chmod 644 $init_script_path$caddy_init
   $sudo_cmd systemctl daemon-reload
@@ -208,7 +208,7 @@ install_caddy()
 
 
   # Prepare caddy user
-  caddy_user="$caddy_user"
+  caddy_user="www-data"
   # and there's probably a better idea than assuming there's not already a user 33...
   if [ $(grep -c $caddy_user /etc/passwd) -eq 0 ]; then
     echo "Making $caddy_user user"
@@ -217,30 +217,40 @@ install_caddy()
       -g $caddy_user --no-user-group \
       --home-dir /var/www --no-create-home \
       --shell /usr/sbin/nologin \
-      --system --uid 33 $caddy_user
+      --system --uid 33 $caddy_user;
   fi
 
 
 
   # Prepare directories for caddy:
-  $sudo_cmd mkdir /etc/caddy
-  $sudo_cmd chown -R root:$caddy_user /etc/caddy
-  $sudo_cmd mkdir /etc/ssl/caddy
-  $sudo_cmd chown -R $caddy_user:root /etc/ssl/caddy
-  $sudo_cmd chmod 0770 /etc/ssl/caddy
-  $sudo_cmd mkdir /var/www
-  $sudo_cmd chown www-data:www-data /var/www
-  $sudo_cmd chmod 555 /var/www
+  if ! ls /etc/caddy >/dev/null 2>&1; then
+    $sudo_cmd mkdir /etc/caddy
+    $sudo_cmd chown -R root:$caddy_user /etc/caddy;
+  fi
+  if ! ls /etc/ssl/caddy >/dev/null 2>&1; then
+    $sudo_cmd mkdir /etc/ssl/caddy
+    $sudo_cmd chown -R $caddy_user:root /etc/ssl/caddy
+    $sudo_cmd chmod 0770 /etc/ssl/caddy
+  fi
+  if ! ls /var/www >/dev/null 2>&1; then
+    $sudo_cmd mkdir /var/www
+    $sudo_cmd chown www-data:www-data /var/www
+    $sudo_cmd chmod 555 /var/www
+  fi
 
   # Make a dummy Caddyfile
-  $sudo_cmd touch /etc/caddy/Caddyfile
-  $sudo_cmd chown www-data:www-data /etc/caddy/Caddyfile
-  $sudo_cmd chmod 444 /etc/caddy/Caddyfile
+  if ! ls /etc/caddy/Caddyfile >/dev/null 2>&1; then
+    $sudo_cmd touch /etc/caddy/Caddyfile
+    $sudo_cmd chown www-data:www-data /etc/caddy/Caddyfile
+    $sudo_cmd chmod 444 /etc/caddy/Caddyfile
+  fi
 
 	# check installation
 	$caddy_bin --version
 
+  echo ""
 	echo "Successfully installed"
+  echo ""
   echo "Edit the Caddyfile at /etc/caddy/Caddyfile so that caddy can start"
   echo "See https://caddyserver.com/docs/caddyfile for more information"
   echo ""

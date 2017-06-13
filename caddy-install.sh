@@ -186,9 +186,9 @@ install_caddy()
 	echo "Putting caddy in $install_path (may require password)"
 	$sudo_cmd mv "$PREFIX/tmp/$caddy_bin" "$install_path/$caddy_bin"
   # Took out if statement because it wasn't running even on systems where it should, not sure how this change breaks compatibility with other systems
-	#if setcap_cmd=$(type -p setcap); then
-  $sudo_cmd setcap cap_net_bind_service=+ep "$install_path/$caddy_bin"
-	#fi
+	if setcap_cmd=$($sudo_cmd which setcap); then
+    $sudo_cmd setcap cap_net_bind_service=+ep "$install_path/$caddy_bin"
+	fi
 	$sudo_cmd rm -- "$PREFIX/tmp/$caddy_file"
 
   # TODO make this init system sensitive
